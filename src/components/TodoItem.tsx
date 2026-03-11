@@ -1,172 +1,171 @@
 'use client';
 
 import { useState } from 'react';
-
-interface Todo {
-  id: number;
-  title: string;
-  description: string | null;
-  completed: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import { TodoData } from '@/app/page';
 
 interface TodoItemProps {
-  todo: Todo;
+  todo: TodoData;
   onToggle: (id: number, completed: boolean) => Promise<void>;
+  onUpdate: (id: number, title: string, description: string | null) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
-  onUpdate: (id: number, title: string, description: string) => Promise<void>;
 }
 
-export default function TodoItem({ todo, onToggle, onDelete, onUpdate }: TodoItemProps) {
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export default function TodoItem({
+  todo,
+  onToggle,
+  onUpdate,
+  onDelete,
+}: TodoItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(todo.title);
-  const [editDescription, setEditDescription] = useState(todo.description || '');
-  const [loading, setLoading] = useState(false);
+  const [editDesc, setEditDesc] = useState(todo.description ?? '');
+  const [toggling, setToggling] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleToggle = async () => {
-    setLoading(true);
+    setToggling(true);
     try {
       await onToggle(todo.id, !todo.completed);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this todo?')) return;
-    setLoading(true);
-    try {
-      await onDelete(todo.id);
-    } finally {
-      setLoading(false);
+      setToggling(false);
     }
   };
 
   const handleEdit = () => {
     setEditTitle(todo.title);
-    setEditDescription(todo.description || '');
+    setEditDesc(todo.description ?? '');
     setIsEditing(true);
   };
 
   const handleSave = async () => {
     if (!editTitle.trim()) return;
-    setLoading(true);
+    setSaving(true);
     try {
-      await onUpdate(todo.id, editTitle.trim(), editDescription.trim());
+      await onUpdate(todo.id, editTitle.trim(), editDesc.trim() || null);
       setIsEditing(false);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   const handleCancel = () => {
     setEditTitle(todo.title);
-    setEditDescription(todo.description || '');
+    setEditDesc(todo.description ?? '');
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSave();
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${todo.title}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await onDelete(todo.id);
+    } finally {
+      setDeleting(false);
     }
-    if (e.key === 'Escape') {
-      handleCancel();
-    }
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   return (
-    <li className={`todo-item${todo.completed ? ' completed' : ''}`}>
+    <div className={`todo-item${todo.completed ? ' completed-item' : ''}`}>
+      {/* Checkbox */}
+      <div className="checkbox-wrap">
+        <button
+          className={`checkbox${todo.completed ? ' checked' : ''}`}
+          onClick={handleToggle}
+          disabled={toggling}
+          aria-label={todo.completed ? 'Mark incomplete' : 'Mark complete'}
+          title={todo.completed ? 'Mark incomplete' : 'Mark complete'}
+        >
+          {todo.completed && <span className="checkmark">✓</span>}
+        </button>
+      </div>
+
+      {/* Content */}
       {isEditing ? (
-        <div className="todo-edit-form">
+        <div className="edit-form">
           <input
-            type="text"
-            className="edit-input"
+            className="input"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-            maxLength={200}
-            autoFocus
             placeholder="Todo title"
+            disabled={saving}
+            autoFocus
           />
           <textarea
-            className="edit-textarea"
-            value={editDescription}
-            onChange={(e) => setEditDescription(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-            maxLength={1000}
+            className="input"
+            value={editDesc}
+            onChange={(e) => setEditDesc(e.target.value)}
             placeholder="Description (optional)"
+            disabled={saving}
             rows={2}
           />
           <div className="edit-actions">
             <button
-              className="btn btn-success"
+              className="btn btn-primary btn-sm"
               onClick={handleSave}
-              disabled={loading || !editTitle.trim()}
+              disabled={saving || !editTitle.trim()}
             >
-              {loading ? '⏳' : '✓'} Save
+              {saving ? 'Saving…' : '✓ Save'}
             </button>
             <button
-              className="btn btn-ghost"
+              className="btn btn-ghost btn-sm"
               onClick={handleCancel}
-              disabled={loading}
+              disabled={saving}
             >
-              ✕ Cancel
+              Cancel
             </button>
           </div>
         </div>
       ) : (
-        <div className="todo-item-view">
-          <div className="todo-checkbox-wrapper">
-            <button
-              className={`todo-checkbox${todo.completed ? ' checked' : ''}`}
-              onClick={handleToggle}
-              disabled={loading}
-              title={todo.completed ? 'Mark as incomplete' : 'Mark as complete'}
-              aria-label={todo.completed ? 'Mark as incomplete' : 'Mark as complete'}
-            />
+        <div className="todo-content">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span className={`todo-title${todo.completed ? ' completed-text' : ''}`}>
+              {todo.title}
+            </span>
+            <span className={`badge ${todo.completed ? 'badge-completed' : 'badge-active'}`}>
+              {todo.completed ? 'Done' : 'Active'}
+            </span>
           </div>
-          <div className="todo-content">
-            <div className="todo-title">{todo.title}</div>
-            {todo.description && (
-              <div className="todo-description">{todo.description}</div>
-            )}
-            <div className="todo-meta">🕒 {formatDate(todo.createdAt)}</div>
-          </div>
-          <div className="todo-actions">
-            <button
-              className="btn btn-ghost"
-              onClick={handleEdit}
-              disabled={loading}
-              title="Edit todo"
-            >
-              ✏️ Edit
-            </button>
-            <button
-              className="btn btn-danger"
-              onClick={handleDelete}
-              disabled={loading}
-              title="Delete todo"
-            >
-              🗑️ Delete
-            </button>
-          </div>
+          {todo.description && (
+            <p className="todo-desc">{todo.description}</p>
+          )}
+          <p className="todo-date">Created {formatDate(todo.createdAt)}</p>
         </div>
       )}
-    </li>
+
+      {/* Actions */}
+      {!isEditing && (
+        <div className="todo-actions">
+          <button
+            className="btn-icon"
+            onClick={handleEdit}
+            aria-label="Edit todo"
+            title="Edit"
+          >
+            ✏️
+          </button>
+          <button
+            className="btn-icon danger"
+            onClick={handleDelete}
+            disabled={deleting}
+            aria-label="Delete todo"
+            title="Delete"
+          >
+            {deleting ? '…' : '🗑️'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -2,32 +2,73 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDataSource } from '@/lib/database';
 import { Todo } from '@/entities/Todo';
 
-type Params = { params: { id: string } };
+type RouteContext = { params: { id: string } };
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function GET(
+  _request: NextRequest,
+  context: RouteContext
+) {
   try {
-    const id = parseInt(params.id, 10);
+    const id = parseInt(context.params.id, 10);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     }
 
-    const body = await request.json();
     const ds = await getDataSource();
     const repo = ds.getRepository(Todo);
-
     const todo = await repo.findOneBy({ id });
+
     if (!todo) {
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
     }
 
-    if (typeof body.title === 'string' && body.title.trim() !== '') {
-      todo.title = body.title.trim();
+    return NextResponse.json(todo);
+  } catch (error) {
+    console.error('GET /api/todos/[id] error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch todo' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  context: RouteContext
+) {
+  try {
+    const id = parseInt(context.params.id, 10);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     }
-    if ('description' in body) {
-      todo.description = body.description ? body.description.trim() : null;
+
+    const ds = await getDataSource();
+    const repo = ds.getRepository(Todo);
+    const todo = await repo.findOneBy({ id });
+
+    if (!todo) {
+      return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
     }
-    if (typeof body.completed === 'boolean') {
-      todo.completed = body.completed;
+
+    const body = await request.json();
+    const { title, description, completed } = body;
+
+    if (title !== undefined) {
+      if (typeof title !== 'string' || title.trim() === '') {
+        return NextResponse.json(
+          { error: 'Title cannot be empty' },
+          { status: 400 }
+        );
+      }
+      todo.title = title.trim();
+    }
+
+    if (description !== undefined) {
+      todo.description = description ? description.trim() : null;
+    }
+
+    if (completed !== undefined) {
+      todo.completed = Boolean(completed);
     }
 
     const updated = await repo.save(todo);
@@ -41,17 +82,20 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: Params) {
+export async function DELETE(
+  _request: NextRequest,
+  context: RouteContext
+) {
   try {
-    const id = parseInt(params.id, 10);
+    const id = parseInt(context.params.id, 10);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     }
 
     const ds = await getDataSource();
     const repo = ds.getRepository(Todo);
-
     const todo = await repo.findOneBy({ id });
+
     if (!todo) {
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
     }

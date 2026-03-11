@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,7 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-@Entity()
+@Entity('todos')
 export class Todo {
   @PrimaryGeneratedColumn()
   id!: number;

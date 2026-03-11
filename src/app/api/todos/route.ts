@@ -2,13 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDataSource } from '@/lib/database';
 import { Todo } from '@/entities/Todo';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const ds = await getDataSource();
     const repo = ds.getRepository(Todo);
-    const todos = await repo.find({
-      order: { createdAt: 'DESC' },
-    });
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+
+    let todos: Todo[];
+
+    if (status === 'active') {
+      todos = await repo.find({
+        where: { completed: false },
+        order: { createdAt: 'DESC' },
+      });
+    } else if (status === 'completed') {
+      todos = await repo.find({
+        where: { completed: true },
+        order: { createdAt: 'DESC' },
+      });
+    } else {
+      todos = await repo.find({ order: { createdAt: 'DESC' } });
+    }
+
     return NextResponse.json(todos);
   } catch (error) {
     console.error('GET /api/todos error:', error);

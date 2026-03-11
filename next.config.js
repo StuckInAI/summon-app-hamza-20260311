@@ -3,13 +3,10 @@ const nextConfig = {
   output: 'standalone',
   webpack: (config, { isServer }) => {
     if (isServer) {
-      const externals = Array.isArray(config.externals)
-        ? config.externals
-        : config.externals
-        ? [config.externals]
-        : [];
-      externals.push('better-sqlite3');
-      config.externals = externals;
+      if (!Array.isArray(config.externals)) {
+        config.externals = [config.externals].filter(Boolean);
+      }
+      config.externals.push('better-sqlite3');
     }
     return config;
   },
